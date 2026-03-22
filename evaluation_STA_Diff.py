@@ -539,7 +539,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.dataset == 'brat':
         args.num_classes = 1
-    args.results_dir = f"./DeCo-Diff_{args.dataset}_{args.object_category}_{args.model_size}_{args.center_size}"
+    args.results_dir = f"./STA-Diff_{args.dataset}_{args.object_category}_{args.model_size}_{args.center_size}"
     if args.center_crop:
         args.results_dir += "_CenterCrop"
         args.actual_image_size = args.center_size

@@ -195,14 +195,8 @@ def main(args):
     ])
         
     
-    if args.dataset=='mvtec':
-        dataset = MVTECDataset('train', object_class=args.object_category, rootdir=args.data_dir, transform=transform, image_size=args.image_size,  center_size=args.center_size, augment=args.augmentation, center_crop=args.center_crop)
-    elif args.dataset=='visa':
-        dataset = VISADataset('train', object_class=args.object_category, rootdir=args.data_dir, transform=transform, image_size=args.image_size,  center_size=args.center_size, augment=args.augmentation, center_crop=args.center_crop)
-    elif args.dataset == 'brat':
+    if args.dataset == 'brat':
         dataset = BRATDataset('train', object_class=args.object_category, rootdir=args.data_dir, transform=transform, image_size=args.image_size, center_size=args.center_size, augment=args.augmentation, center_crop=args.center_crop)
-    elif args.dataset == 'kvasir':
-        dataset = KvasirDataset('train', object_class=args.object_category, rootdir=args.data_dir, transform=transform, image_size=args.image_size, center_size=args.center_size, augment=args.augmentation, center_crop=args.center_crop)
 
 
 
@@ -385,7 +379,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.dataset == 'brat':
         args.num_classes = 1
-    args.results_dir = f"./DeCo-Diff_{args.dataset}_{args.object_category}_{args.model_size}_{args.center_size}"
+    args.results_dir = f"./STA-Diff_{args.dataset}_{args.object_category}_{args.model_size}_{args.center_size}"
     if args.center_crop:
         args.results_dir += "_CenterCrop"
         args.actual_image_size = args.center_size

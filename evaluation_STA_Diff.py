@@ -18,9 +18,6 @@ import random
 
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from KvaDataLoader import KvasirDataset
-from MVTECDataLoader import MVTECDataset
-from VISADataLoader import VISADataset
 from BRATDataLoader import BRATDataset
 from scipy.ndimage import gaussian_filter
 
@@ -378,14 +375,8 @@ def evaluation(args):
         x0_s = []
         segmentation_s = []
         
-        if args.dataset=='mvtec':
-            test_dataset = MVTECDataset('test', object_class=category, rootdir=args.data_dir, transform=transform, normal=False, anomaly_class=args.anomaly_class, image_size=args.image_size, center_size=args.actual_image_size, center_crop=args.center_crop)
-        elif args.dataset=='visa':
-            test_dataset = VISADataset('test', object_class=category, rootdir=args.data_dir, transform=transform, normal=False, anomaly_class=args.anomaly_class, image_size=args.image_size, center_size=args.actual_image_size, center_crop=args.center_crop)
-        elif args.dataset == 'brat':
+        if args.dataset == 'brat':
             test_dataset = BRATDataset('test', object_class=category, rootdir=args.data_dir, transform=transform, image_size=args.image_size, center_size=args.actual_image_size, center_crop=args.center_crop)        
-        elif args.dataset == 'kvasir':
-            test_dataset = KvasirDataset('test', object_class=category, rootdir=args.data_dir, transform=transform, image_size=args.image_size, center_size=args.actual_image_size, center_crop=args.center_crop)
 
         test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False, num_workers=4, drop_last=False)
 

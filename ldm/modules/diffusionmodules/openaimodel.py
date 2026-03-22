@@ -8,10 +8,6 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 
-import geoopt
-from ldm.modules.hyper_nets import MobiusLinear
-import geoopt.manifolds.stereographic.math as gmath
-import torch
 
 from ldm.modules.diffusionmodules.util import (
     checkpoint,
@@ -91,16 +87,6 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     A sequential module that passes timestep embeddings to the children that
     support it as an extra input.
     """
-
-    # def forward(self, x, emb, context=None):
-    #     for layer in self:
-    #         if isinstance(layer, TimestepBlock):
-    #             x = layer(x, emb)
-    #         elif isinstance(layer, SpatialTransformer):
-    #             x = layer(x, context)
-    #         else:
-    #             x = layer(x)
-    #     return x
 
     def forward(self, x, emb, context=None):
         for layer in self:
@@ -249,15 +235,6 @@ class ResBlock(TimestepBlock):
             ),
         )
 
-        # self.emb_act = nn.SiLU()
-        # self.emb_proj = MobiusLinear(
-        #     emb_channels,
-        #     2 * self.out_channels if use_scale_shift_norm else self.out_channels,
-        #     hyperbolic_input=False,
-        #     hyperbolic_bias=True,
-        #     nonlin=None,
-        #     k=-1.0,
-        # )
 
         self.out_layers = nn.Sequential(
             normalization(self.out_channels),
@@ -298,14 +275,7 @@ class ResBlock(TimestepBlock):
             h = in_conv(h)
         else:
             h = self.in_layers(x)
-        emb_out = self.emb_layers(emb).type(h.dtype) #原版
-
-        # emb_h = self.emb_act(emb)
-        # emb_h = self.emb_proj(emb_h)
-        # emb_out = gmath.logmap0(
-        #     emb_h,
-        #     k=torch.tensor(-1.0, device=emb_h.device, dtype=emb_h.dtype)
-        # ).type(h.dtype)
+        emb_out = self.emb_layers(emb).type(h.dtype) 
 
 
         while len(emb_out.shape) < len(h.shape):
@@ -379,81 +349,6 @@ class AttentionBlock(nn.Module):
         h = self.proj_out(h)
 
         return (x_in + h).reshape(b, c, *spatial)
-
-# class AttentionBlock(nn.Module):
-#     """
-#     An attention block that allows spatial positions to attend to each other.
-#     Originally ported from here, but adapted to the N-d case.
-#     https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
-#     """
-
-#     def __init__(
-#         self,
-#         channels,
-#         num_heads=1,
-#         num_head_channels=-1,
-#         use_checkpoint=False,
-#         use_new_attention_order=False,
-#     ):
-#         super().__init__()
-#         self.channels = channels
-#         if num_head_channels == -1:
-#             self.num_heads = num_heads
-#         else:
-#             assert (
-#                 channels % num_head_channels == 0
-#             ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
-#             self.num_heads = channels // num_head_channels
-#         self.use_checkpoint = use_checkpoint
-#         self.norm = normalization(channels)
-#         self.qkv = conv_nd(1, channels, channels * 3, 1)
-#         if use_new_attention_order:
-#             # split qkv before split heads
-#             self.attention = QKVAttention(self.num_heads)
-#         else:
-#             # split heads before split qkv
-#             self.attention = QKVAttentionLegacy(self.num_heads)
-
-#         self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
-        
-#         self.feat_proj = MobiusLinear(
-#             channels,
-#             channels,
-#             hyperbolic_input=False,
-#             hyperbolic_bias=True,
-#             nonlin=None,
-#             k=-1.0,
-#         )
-
-    # def forward(self, x):
-    #     return self._forward(x)
-    #     # return checkpoint(self._forward, (x,), self.parameters(), True)   # TODO: check checkpoint usage, is True # TODO: fix the .half call!!!
-    #     #return pt_checkpoint(self._forward, x)  # pytorch
-    
-    # def _forward(self, x):
-    #     b, c, *spatial = x.shape
-    #     x = x.reshape(b, c, -1)                 # [B, C, HW]
-
-    #     feat = x.permute(0, 2, 1)               # [B, HW, C]
-    #     feat_h = self.feat_proj(feat)           # 双曲映射
-    #     feat = gmath.logmap0(
-    #         feat_h,
-    #         k=torch.tensor(-1.0, device=feat_h.device, dtype=feat_h.dtype)
-    #     )
-    #     x = feat.permute(0, 2, 1).contiguous()  # 回到 [B, C, HW]
-
-    #     qkv = self.qkv(self.norm(x))
-    #     h = self.attention(qkv)
-    #     h = self.proj_out(h)
-    #     return (x + h).reshape(b, c, *spatial)
-
-    # # def _forward(self, x):
-    #     # b, c, *spatial = x.shape    #原版
-    #     # x = x.reshape(b, c, -1)
-    #     # qkv = self.qkv(self.norm(x))
-    #     # h = self.attention(qkv)
-    #     # h = self.proj_out(h)
-    #     # return (x + h).reshape(b, c, *spatial)
 
 
 def count_flops_attn(model, _x, y):
@@ -636,7 +531,6 @@ class UNetModel(nn.Module):
         self.num_heads_upsample = num_heads_upsample
         self.predict_codebook_ids = n_embed is not None
         if use_spatial_transformer and (context_dim is not None):
-            # 只有在需要 cross-attn 时才启用
             self.cond_stage_model = ClassEmbedder(context_dim, n_classes=ncls)
         else:
             self.cond_stage_model = None  
@@ -793,7 +687,7 @@ class UNetModel(nn.Module):
                     layers.append(
                         AttentionBlock(
                             ch,
-                            emb_channels=time_embed_dim, #新
+                            emb_channels=time_embed_dim, 
                             use_checkpoint=use_checkpoint,
                             num_heads=num_heads_upsample,
                             num_head_channels=dim_head,
@@ -868,8 +762,7 @@ class UNetModel(nn.Module):
             context = self.cond_stage_model(context)  # [N] → [N, D]
         else:
             context = None
-
-        # context = self.cond_stage_model(context)
+            
         hs = []
         t_emb = timestep_embedding(t, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
@@ -979,7 +872,7 @@ class EncoderUNetModel(nn.Module):
                     layers.append(
                         AttentionBlock(
                             ch,
-                            emb_channels=time_embed_dim, #新
+                            emb_channels=time_embed_dim, 
                             use_checkpoint=use_checkpoint,
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
@@ -1025,7 +918,7 @@ class EncoderUNetModel(nn.Module):
             ),
             AttentionBlock(
                 ch,
-                emb_channels=time_embed_dim, #新
+                emb_channels=time_embed_dim, 
                 use_checkpoint=use_checkpoint,
                 num_heads=num_heads,
                 num_head_channels=num_head_channels,

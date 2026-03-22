@@ -6,13 +6,14 @@ from torch.utils.data import Dataset
 import albumentations as A
 from glob import glob
 
+
 class BRATDataset(Dataset):
     """
-    三模态 BraTS 数据集：
-        T1 / T2 / FLAIR 输入作为 3 通道
-        seg 作为二值 mask
+    Multi-modal BraTS Dataset:
+        Uses T1 / T2 / FLAIR (or customized modalities) as 3-channel input,
+        and segmentation (seg) as a binary mask.
 
-    文件结构示例:
+    Expected directory structure:
         root/
             test/
                 T1/
@@ -30,8 +31,8 @@ class BRATDataset(Dataset):
         mode: str,
         object_class: str,
         transform=None,
-        # modalities=("flair", "t2", "t1ce"),   # ← 多模态
-        modalities=("t1ce", "t1ce", "t1ce"),   # ← 多模态
+        # modalities=("flair", "t2", "t1ce"),   # multi-modal setting
+        modalities=("t1ce", "t1ce", "t1ce"),   # duplicated modality (pseudo-RGB)
         rootdir="./data",
         image_size=240,
         center_size=240,
@@ -47,44 +48,47 @@ class BRATDataset(Dataset):
         self.debug_first_n = debug_first_n
         self.transform = transform
 
-        # 模态路径
+        # Build modality directories
         self.modality_dirs = {
             m: os.path.join(rootdir, mode, m) for m in modalities
         }
         self.mask_dir = os.path.join(rootdir, mode, "seg")
 
-        # —— 以第一个模态(T1)为主索引 —— #
+        # Use the first modality as the index reference
         main_mod = modalities[0]
         self.main_paths = sorted(
             glob(os.path.join(self.modality_dirs[main_mod], "*.npy"))
         )
-        if len(self.main_paths) == 0:
-            raise RuntimeError(f"No modality files found in {self.modality_dirs[main_mod]}")
 
-        # 匹配所有模态 & mask
+        if len(self.main_paths) == 0:
+            raise RuntimeError(
+                f"No modality files found in {self.modality_dirs[main_mod]}"
+            )
+
+        # Match all modalities and corresponding mask
         self.sample_list = []
         for p in self.main_paths:
             stem = os.path.splitext(os.path.basename(p))[0]
-            # 例：BraTS2021_00072_T1_76
+            # Example: BraTS2021_00072_T1_76
             parts = stem.split("_")
-            prefix = "_".join(parts[:2])         # BraTS2021_00072
-            slice_id = parts[-1]                # 76
+            prefix = "_".join(parts[:2])   # BraTS2021_00072
+            slice_id = parts[-1]           # 76
 
-            # 构造每个模态的文件路径
+            # Construct paths for each modality
             modal_files = {}
-            ok = True
+            valid = True
             for m in modalities:
                 modal_name = f"{prefix}_{m}_{slice_id}.npy"
                 modal_path = os.path.join(self.modality_dirs[m], modal_name)
                 if not os.path.exists(modal_path):
-                    ok = False
+                    valid = False
                     break
                 modal_files[m] = modal_path
 
-            if not ok:
+            if not valid:
                 continue
 
-            # 构造 mask path
+            # Construct mask path
             mask_name = f"{prefix}_seg_{slice_id}.npy"
             mask_path = os.path.join(self.mask_dir, mask_name)
             if not os.path.exists(mask_path):
@@ -92,12 +96,12 @@ class BRATDataset(Dataset):
 
             self.sample_list.append((modal_files, mask_path))
 
-        print(f"[BRATDataset Multi-modal] mode={mode} samples={len(self.sample_list)}")
+        print(f"[BRATDataset Multi-modal] mode={mode}, samples={len(self.sample_list)}")
 
-        # 数据增强
+        # Data augmentation
         if augment:
             self.aug = A.Compose([
-                A.Affine(translate_px=int(image_size/8 - center_size/8), p=0.5),
+                A.Affine(translate_px=int(image_size / 8 - center_size / 8), p=0.5),
                 A.CenterCrop(p=1, height=center_size, width=center_size),
             ])
         else:
@@ -109,31 +113,42 @@ class BRATDataset(Dataset):
     def __getitem__(self, idx):
         modal_files, mask_path = self.sample_list[idx]
 
-        # 读取三模态并 resize
+        # Load multi-modal inputs and resize
         channels = []
         for m in self.modalities:
             x = np.load(modal_files[m]).astype(np.float32)
             if x.ndim == 3:
                 x = x.squeeze()
-            x = cv2.resize(x, (self.image_size, self.image_size), interpolation=cv2.INTER_LINEAR)
+
+            x = cv2.resize(
+                x,
+                (self.image_size, self.image_size),
+                interpolation=cv2.INTER_LINEAR
+            )
             channels.append(x)
 
-        img = np.stack(channels, axis=2)   # (H,W,3)
-        img = (img - img.min()) / (img.max() - img.min() + 1e-8)  # normalize 0~1
+        img = np.stack(channels, axis=2)   # shape: (H, W, C)
+        img = (img - img.min()) / (img.max() - img.min() + 1e-8)  # normalize to [0, 1]
 
-        # mask
+        # Load segmentation mask
         seg = np.load(mask_path).astype(np.uint8)
         if seg.ndim == 3:
             seg = seg.squeeze()
-        seg = cv2.resize(seg, (self.image_size, self.image_size), interpolation=cv2.INTER_NEAREST)
+
+        seg = cv2.resize(
+            seg,
+            (self.image_size, self.image_size),
+            interpolation=cv2.INTER_NEAREST
+        )
         seg = (seg > 0).astype(np.uint8)
 
-        # augmentation
+        # Apply augmentation / center crop
         if self.center_crop:
             out = self.aug(image=img, mask=seg)
             img, seg = out["image"], out["mask"]
 
-        img = torch.from_numpy(img.transpose(2, 0, 1))   # (3,H,W)
+        # Convert to torch tensor
+        img = torch.from_numpy(img.transpose(2, 0, 1))   # (C, H, W)
         seg = torch.from_numpy(seg)
 
         return img, seg, 0

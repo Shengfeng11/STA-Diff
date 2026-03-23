@@ -45,8 +45,11 @@ Alternatively, you may directly use our preprocessed dataset, available here: ht
 The preprocessed data is stored in .npy format for efficient training and evaluation.
 
 Expected Structure
+
 data/
+
     train/
+    ...
     test/
         t1/
         t2/
@@ -54,6 +57,7 @@ data/
         t1ce/
         seg/
     val/
+    ...
 
     
 🏋️ Training

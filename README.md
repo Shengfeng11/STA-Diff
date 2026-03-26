@@ -115,9 +115,6 @@ Robust across multi-modal MRI inputs
 Clear anomaly boundaries
 Reduced noise in normal regions
 Stable reconstruction across modalities
-📚 Citation
-
-If you find this work useful, please cite:
 
 
 🧠 Acknowledgements

@@ -110,20 +110,9 @@ Better preservation of healthy tissue structure
 More accurate localization of large lesions
 Robust across multi-modal MRI inputs
 📸 Qualitative Results
+<img width="705" height="666" alt="image" src="https://github.com/user-attachments/assets/e9535137-ab90-405f-b895-f97c71ba2da9" />
 
 ✨ Highlights
 Clear anomaly boundaries
 Reduced noise in normal regions
 Stable reconstruction across modalities
-
-
-🧠 Acknowledgements
-
-This project builds upon:
-
-Diffusion models
-Latent Diffusion Models (LDM)
-Medical anomaly detection frameworks
-🔒 Notes
-This repository is intended for research purposes only
-For clinical use, further validation is required

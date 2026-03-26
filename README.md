@@ -109,8 +109,7 @@ python evaluation_DeCo_Diff.py \
 Better preservation of healthy tissue structure
 More accurate localization of large lesions
 Robust across multi-modal MRI inputs
-📸 Qualitative Results
-<img width="705" height="666" alt="image" src="https://github.com/user-attachments/assets/e9535137-ab90-405f-b895-f97c71ba2da9" />
+
 
 ✨ Highlights
 Clear anomaly boundaries
